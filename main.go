@@ -3,12 +3,36 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"log"
 	"time"
 
 	"github.com/goburrow/modbus"
 )
+
+type StationData struct {
+	ID_Stasiun string  `json:"IDStasiun"`
+	Tanggal    string  `json:"Tanggal"`
+	Jam        string  `json:"Jam"`
+	Suhu       float32 `json:"Suhu"`
+	TDS        float32 `json:"TDS"`
+	DO         float32 `json:"DO"`
+	PH         float32 `json:"PH"`
+	Turbidity  float32 `json:"Turbidity"`
+	Kedalaman  float32 `json:"Kedalaman"`
+	Nitrat     float32 `json:"Nitrat"`
+	Amonia     float32 `json:"Amonia"`
+	COD        float32 `json:"COD"`
+	BOD        float32 `json:"BOD"`
+	TSS        float32 `json:"TSS"`
+}
+
+type Payload struct {
+	Data      StationData `json:"Data"`
+	ApiKey    string      `json:"apikey"`
+	ApiSecret string      `json:"apisecret"`
+}
 
 func main() {
 	// Modbus TCP
@@ -56,6 +80,66 @@ func main() {
 	fmt.Println("Turbidity Result : ", turbidityRes)
 	fmt.Println("DO Result : ", doRes)
 
+	current_time := time.Now()
+	year, month, day := current_time.Date()
+	current_date := fmt.Sprintf("%d-%d-%d", year, int(month), day)
+	//current_date := current_time.Format("2022-01-01")
+	hour, minute, second := current_time.Clock()
+	current_clock := fmt.Sprintf("%d:%d:%d", hour, minute, second)
+	//current_clock := current_time.Format("15:01:01")
+
+	//url_api := "https://ppkl.menlhk.go.id/onlimo/uji/connect/uji_data_onlimo"
+	id_station := "indosense"
+	apikey := "uji@forbesmarshallindonesia"
+	apisecret := "4ede9dea-b352-4815-823f-8525c1563663"
+
+	data := &StationData{
+		ID_Stasiun: id_station,
+		Tanggal:    current_date,
+		Jam:        current_clock,
+		Suhu:       tempRes,
+		TDS:        tdsRes,
+		DO:         doRes,
+		PH:         phRes,
+		Turbidity:  turbidityRes,
+		Kedalaman:  0,
+		Nitrat:     0,
+		Amonia:     0,
+		COD:        codRes,
+		BOD:        bodRes,
+		TSS:        tssRes,
+	}
+
+	payload := &Payload{
+		Data:      *data,
+		ApiKey:    apikey,
+		ApiSecret: apisecret,
+	}
+
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		fmt.Println("Error occured on marshalling payload, ", err.Error())
+	}
+	fmt.Println(string(jsonPayload))
+
+	// req, err := http.NewRequest("POST", url_api, bytes.NewBuffer(jsonPayload))
+	// if err != nil {
+	// 	fmt.Println("Error on creating the request, ", err.Error())
+	// }
+	// req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+
+	// httpClient := &http.Client{}
+	// httpRespose, err := httpClient.Do(req)
+	// if err != nil {
+	// 	fmt.Println("Error on sending payload, ", err.Error())
+	// }
+	// defer httpRespose.Body.Close()
+
+	// fmt.Println("Response status : ", httpRespose.Status)
+	// fmt.Println("Response header : ", httpRespose.Header)
+	// body, _ := ioutil.ReadAll(httpRespose.Body)
+	// fmt.Println("Response body : ", string(body))
+
 }
 
 func DecodeMessageHoldingRegister(client modbus.Client, addr, quantity uint16) float32 {
@@ -88,13 +172,13 @@ func DecodeMessageInputRegister(client modbus.Client, addr, quantity uint16) flo
 		return finalRes
 	}
 
-	fmt.Println("Bytes before word swapping : ", read)
+	// fmt.Println("Bytes before word swapping : ", read)
 
 	temp := read[0:2]
 	temp2 := read[2:4]
 	wordSwap := append(temp2, temp...)
 
-	fmt.Println("Bytes after word swapping : ", wordSwap)
+	// fmt.Println("Bytes after word swapping : ", wordSwap)
 
 	buf := bytes.NewReader(wordSwap)
 	if err = binary.Read(buf, binary.BigEndian, &finalRes); err != nil {
