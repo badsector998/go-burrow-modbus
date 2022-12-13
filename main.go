@@ -36,7 +36,7 @@ func main() {
 	client1 := modbus.NewClient(handlerSlave1)
 	client2 := modbus.NewClient(handlerSlave2)
 	client3 := modbus.NewClient(handlerSlave3)
-	fmt.Println("Reading measurement on universal channel 1, using 2 as quantity")
+	fmt.Println("Reading measurement.... ")
 
 	codRes := DecodeMessageHoldingRegister(client2, 1, 2)
 	tssRes := DecodeMessageHoldingRegister(client2, 3, 2)
