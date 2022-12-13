@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"github.com/goburrow/modbus"
@@ -13,49 +12,96 @@ import (
 
 func main() {
 	// Modbus TCP
-	handler := modbus.NewTCPClientHandler("localhost:5000")
-	handler.Timeout = 10 * time.Second
-	handler.Logger = log.New(os.Stdout, "test: ", log.LstdFlags)
+
+	handlerSlave1 := modbus.NewTCPClientHandler("localhost:502")
+	handlerSlave1.SlaveId = byte(1)
+	handlerSlave1.Timeout = 10 * time.Second
+
+	handlerSlave2 := modbus.NewTCPClientHandler("localhost:502")
+	handlerSlave2.SlaveId = byte(2)
+	handlerSlave2.Timeout = 10 * time.Second
+
+	handlerSlave3 := modbus.NewTCPClientHandler("localhost:502")
+	handlerSlave3.SlaveId = byte(3)
+	handlerSlave3.Timeout = 10 * time.Second
+
+	// handler.Logger = log.New(os.Stdout, "test: ", log.LstdFlags)
 	// Connect manually so that multiple requests are handled in one connection session
-	err := handler.Connect()
+	err := handlerSlave2.Connect()
 	if err != nil {
 		log.Panic("Error on connect : ", err.Error())
 	}
-	defer handler.Close()
+	defer handlerSlave2.Close()
 
-	client := modbus.NewClient(handler)
-	fmt.Println("Reading measurement on universal channel 1, using 3 as quantity")
-	results, err := client.ReadHoldingRegisters(10, 5)
+	client1 := modbus.NewClient(handlerSlave1)
+	client2 := modbus.NewClient(handlerSlave2)
+	client3 := modbus.NewClient(handlerSlave3)
+	fmt.Println("Reading measurement on universal channel 1, using 2 as quantity")
+
+	codRes := DecodeMessageHoldingRegister(client2, 1, 2)
+	tssRes := DecodeMessageHoldingRegister(client2, 3, 2)
+	bodRes := DecodeMessageHoldingRegister(client2, 5, 2)
+	phRes := DecodeMessageHoldingRegister(client2, 9, 2)
+	tempRes := DecodeMessageHoldingRegister(client2, 11, 2)
+	tdsRes := DecodeMessageInputRegister(client1, 1, 2)
+	turbidityRes := DecodeMessageInputRegister(client1, 3, 2)
+	doRes := DecodeMessageInputRegister(client3, 1, 2)
+
+	fmt.Println("COD Result : ", codRes)
+	fmt.Println("TSS Result : ", tssRes)
+	fmt.Println("BOD Result : ", bodRes)
+	fmt.Println("pH Result : ", phRes)
+	fmt.Println("Temperature Result : ", tempRes)
+	fmt.Println("TDS Result : ", tdsRes)
+	fmt.Println("Turbidity Result : ", turbidityRes)
+	fmt.Println("DO Result : ", doRes)
+
+}
+
+func DecodeMessageHoldingRegister(client modbus.Client, addr, quantity uint16) float32 {
+	var finalRes float32
+
+	read, err := client.ReadHoldingRegisters(addr, quantity)
 	if err != nil {
-		log.Panic("error querying to address 202 : ", err.Error())
+		fmt.Printf("Error reading reading address %d with quantity %d. Overriding Value to 0", addr, quantity)
+		finalRes = 0
+		return finalRes
 	}
 
-	// fmt.Println("Reading measurement on universal channel 1 on each register 200, 201 and 202")
-	// reg200, _ := client.ReadHoldingRegisters(200, 1)
-	// reg201, _ := client.ReadHoldingRegisters(201, 1)
-	// reg202, _ := client.ReadHoldingRegisters(202, 1)
-
-	// results2, err := client.ReadHoldingRegisters(203, 3)
-	// if err != nil {
-	// 	log.Panic("error querying to address 203 : ", err.Error())
-	// }
-
-	fmt.Println("results value address 200 as universal channel 1 : ", results)
-	// fmt.Println("results 2 value address 203 : ", results2)
-	// fmt.Println("results for address 200 : ", reg200)
-	// fmt.Println("results for address 201 : ", reg201)
-	// fmt.Println("results for address 200 : ", reg202)
-
-	val := results[2:]
-
-	fmt.Println("result for getting value bytes : ", val)
-	var result float64
-	buf := bytes.NewReader(val)
-	err = binary.Read(buf, binary.BigEndian, &result)
-	if err != nil {
-		log.Panic("error converting byte to float32, ", err.Error())
+	buf := bytes.NewReader(read)
+	if err = binary.Read(buf, binary.BigEndian, &finalRes); err != nil {
+		fmt.Printf("Error reading reading address %d with quantity %d. Overriding Value to 0", addr, quantity)
+		finalRes = 0
+		return finalRes
 	}
 
-	fmt.Println("Result reading address 200 : ", result)
+	return finalRes
+}
 
+func DecodeMessageInputRegister(client modbus.Client, addr, quantity uint16) float32 {
+	var finalRes float32
+
+	read, err := client.ReadInputRegisters(addr, quantity)
+	if err != nil {
+		fmt.Printf("Error reading reading address %d with quantity %d. Overriding Value to 0", addr, quantity)
+		finalRes = 0
+		return finalRes
+	}
+
+	fmt.Println("Bytes before word swapping : ", read)
+
+	temp := read[0:2]
+	temp2 := read[2:4]
+	wordSwap := append(temp2, temp...)
+
+	fmt.Println("Bytes after word swapping : ", wordSwap)
+
+	buf := bytes.NewReader(wordSwap)
+	if err = binary.Read(buf, binary.BigEndian, &finalRes); err != nil {
+		fmt.Printf("Error reading reading address %d with quantity %d. Overriding Value to 0", addr, quantity)
+		finalRes = 0
+		return finalRes
+	}
+
+	return finalRes
 }
