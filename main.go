@@ -67,7 +67,8 @@ func main() {
 	// Connect manually so that multiple requests are handled in one connection session
 
 	fmt.Println("Measurement Ready.... ")
-	loc, _ := time.LoadLocation("Asia/Jakarta")
+	// loc, _ := time.LoadLocation("Asia/Jakarta")
+	loc := time.FixedZone("UTC+7", 7*60*60)
 
 	for {
 		err := handlerSlave2.Connect()
@@ -120,7 +121,7 @@ func main() {
 		fmt.Println("Turbidity Result : ", turbidityRes)
 		fmt.Println("DO Result : ", doRes)
 
-		current_time := time.Now().UTC().In(loc)
+		current_time := time.Now().In(loc)
 		// year, month, day := current_time.Date()
 		// current_date := fmt.Sprintf("%d-%d-%d", year, int(month), day)
 		current_date := current_time.Format("2006-01-02")
