@@ -31,7 +31,7 @@ type StationData struct {
 }
 
 type Payload struct {
-	Data      StationData `json:"Data"`
+	Data      StationData `json:"data"`
 	ApiKey    string      `json:"apikey"`
 	ApiSecret string      `json:"apisecret"`
 }
